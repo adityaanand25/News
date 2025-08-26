@@ -208,18 +208,22 @@ export class BBCNewsScraper {
         throw new Error('This scraper is specifically designed for BBC News URLs. Please provide a valid BBC News article URL.');
       }
 
-      this.emitProgress('validation', 10, 'Validating BBC News URL...');
+      this.emitProgress('validation', 5, 'Validating BBC News URL...');
+      
+      // Add small delay for visual feedback
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      this.emitProgress('connecting', 15, 'Connecting to BBC News...');
 
       // Fetch the content
-      this.emitProgress('fetching', 30, 'Fetching article from BBC News...');
+      this.emitProgress('fetching', 25, 'Fetching article from BBC News...');
       
       const proxyUrl = `${this.CORS_PROXY}${encodeURIComponent(url)}`;
       
       const response = await axios.get(proxyUrl, {
-        timeout: 20000,
+        timeout: 30000, // Increased timeout
         headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'Accept': 'application/json'
         }
       });
 
@@ -227,17 +231,23 @@ export class BBCNewsScraper {
         throw new Error('Failed to fetch article content from BBC News');
       }
 
-      this.emitProgress('parsing', 60, 'Parsing BBC News article...');
+      this.emitProgress('processing', 50, 'Processing article content...');
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      this.emitProgress('parsing', 70, 'Parsing BBC News article...');
 
       const html = response.data.contents;
       const article = this.extractBBCContent(html, url);
 
-      this.emitProgress('validating', 80, 'Validating extracted content...');
+      this.emitProgress('validating', 85, 'Validating extracted content...');
 
       // Validate extracted content
       if (!article.content || article.content.length < 100) {
         throw new Error('Unable to extract sufficient content from this BBC News article. The article may be behind a paywall or use a different layout.');
       }
+
+      this.emitProgress('finalizing', 95, 'Finalizing extraction...');
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       this.emitProgress('complete', 100, 'BBC News article successfully scraped!');
 

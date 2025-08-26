@@ -89,7 +89,10 @@ export class URLFetcher {
 
   private emitProgress(stage: string, progress: number, message: string) {
     if (this.progressCallback) {
-      this.progressCallback({ stage, progress, message });
+      // Add small delay to ensure progress updates are visible
+      setTimeout(() => {
+        this.progressCallback!({ stage, progress, message });
+      }, 100);
     }
   }
 
@@ -110,7 +113,10 @@ export class URLFetcher {
         
         // Set up progress forwarding for BBC scraper
         bbcScraper.setProgressCallback((progress) => {
-          this.emitProgress(progress.stage, progress.progress, progress.message);
+          // Ensure progress forwarding is immediate but visible
+          setTimeout(() => {
+            this.emitProgress(progress.stage, progress.progress, progress.message);
+          }, 50);
         });
 
         const bbcArticle = await bbcScraper.scrapeArticle(url);
@@ -131,7 +137,9 @@ export class URLFetcher {
         
         // Set up progress forwarding for NYT scraper
         nytScraper.setProgressCallback((progress) => {
-          this.emitProgress(progress.stage, progress.progress, progress.message);
+          setTimeout(() => {
+            this.emitProgress(progress.stage, progress.progress, progress.message);
+          }, 50);
         });
 
         const nytArticle = await nytScraper.extractNYTContent(url);
@@ -152,7 +160,9 @@ export class URLFetcher {
         
         // Set up progress forwarding for CNN scraper
         cnnScraper.setProgressCallback((progress) => {
-          this.emitProgress(progress.stage, progress.progress, progress.message);
+          setTimeout(() => {
+            this.emitProgress(progress.stage, progress.progress, progress.message);
+          }, 50);
         });
 
         const cnnArticle = await cnnScraper.extractCNNContent(url);

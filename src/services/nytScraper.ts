@@ -33,13 +33,16 @@ export class NYTimesScraper {
   }
 
   async extractNYTContent(url: string): Promise<NYTArticle> {
-    this.emitProgress('validation', 10, 'Validating New York Times URL...');
+    this.emitProgress('validation', 5, 'Validating New York Times URL...');
 
     if (!this.isValidNYTUrl(url)) {
       throw new Error('Invalid New York Times URL');
     }
 
-    this.emitProgress('fetching', 30, 'Fetching article from NY Times...');
+    this.emitProgress('connecting', 15, 'Connecting to NY Times...');
+    await new Promise(resolve => setTimeout(resolve, 150));
+    
+    this.emitProgress('fetching', 25, 'Fetching article from NY Times...');
 
     try {
       // Try direct fetch first (for development/local testing)
@@ -53,13 +56,24 @@ export class NYTimesScraper {
         });
         
         if (response.data) {
-          this.emitProgress('parsing', 60, 'Parsing NY Times article structure...');
+          this.emitProgress('processing', 50, 'Processing article content...');
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          this.emitProgress('parsing', 70, 'Parsing NY Times article structure...');
           const article = this.parseNYTHtml(response.data, url);
+          
+          this.emitProgress('finalizing', 95, 'Finalizing extraction...');
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
           this.emitProgress('complete', 100, 'NY Times article extracted successfully');
           return article;
+        } else {
+          throw new Error('No data received from direct fetch');
         }
       } catch (directFetchError) {
         console.warn('Direct fetch failed, trying CORS proxy:', directFetchError);
+        
+        this.emitProgress('retrying', 35, 'Trying alternative access method...');
         
         // Fallback to CORS proxy
         response = await axios.get(`${this.CORS_PROXY}${encodeURIComponent(url)}`, {
@@ -73,10 +87,16 @@ export class NYTimesScraper {
           throw new Error('Failed to fetch article content via CORS proxy');
         }
 
-        this.emitProgress('parsing', 60, 'Parsing NY Times article structure...');
+        this.emitProgress('processing', 55, 'Processing proxied content...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        this.emitProgress('parsing', 75, 'Parsing NY Times article structure...');
         const htmlContent = response.data.contents;
         const article = this.parseNYTHtml(htmlContent, url);
-        this.emitProgress('complete', 100, 'NY Times article extracted successfully');
+        
+        this.emitProgress('finalizing', 95, 'Finalizing extraction...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         this.emitProgress('complete', 100, 'NY Times article extracted successfully');
         return article;
       }

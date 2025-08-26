@@ -32,13 +32,18 @@ export class CNNScraper {
   }
 
   async extractCNNContent(url: string): Promise<CNNArticle> {
-    this.emitProgress('validation', 10, 'Validating CNN URL...');
+    this.emitProgress('validation', 5, 'Validating CNN URL...');
 
     if (!this.isValidCNNUrl(url)) {
       throw new Error('Invalid CNN URL');
     }
 
-    this.emitProgress('fetching', 30, 'Fetching article from CNN...');
+    this.emitProgress('connecting', 15, 'Connecting to CNN...');
+    
+    // Add a small delay to show progress
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    this.emitProgress('fetching', 25, 'Fetching article from CNN...');
 
     try {
       // Try CORS proxy for CNN (they have strong anti-scraping measures)
@@ -54,8 +59,16 @@ export class CNNScraper {
       }
 
       this.emitProgress('parsing', 60, 'Parsing CNN article structure...');
+      
+      // Add processing delay for visual feedback
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       const htmlContent = response.data.contents;
       const article = this.parseCNNHtml(htmlContent, url);
+      
+      this.emitProgress('finalizing', 95, 'Finalizing extraction...');
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
       this.emitProgress('complete', 100, 'CNN article extracted successfully');
       return article;
 

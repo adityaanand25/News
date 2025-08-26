@@ -59,8 +59,10 @@ class RealTimeAnalysisService {
 
         // Set up progress tracking for URL fetching
         urlFetcher.setProgressCallback((progress) => {
+          // Map URL fetching to first 30% of total progress
+          const mappedProgress = Math.min((progress.progress * 0.3), 30);
           this.emit({
-            analysisProgress: Math.min(progress.progress / 2, 25), // URL fetching takes first 25%
+            analysisProgress: mappedProgress,
             isRealTime: true
           });
         });
@@ -156,7 +158,7 @@ class RealTimeAnalysisService {
         this.emit(this.generateCompleteSummary(actualContent, source, tone, articleTitle, articleSource));
         this.stopAnalysis();
       }
-    }, 400); // Slightly slower for URL analysis
+    }, 300); // Faster updates for better real-time feel
   }
 
   stopAnalysis() {
