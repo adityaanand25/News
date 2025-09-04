@@ -4,6 +4,7 @@ import { ArticleInput } from './components/ArticleInput';
 import { ToneSelector, ToneType } from './components/ToneSelector';
 import { SummaryDisplay } from './components/SummaryDisplay';
 import { RealTimeStatus } from './components/RealTimeStatus';
+import { GeminiSettings } from './components/GeminiSettings';
 import { NewsDashboard } from './components/NewsDashboard';
 import { useAnalysis } from './hooks/useAnalysis';
 
@@ -19,7 +20,9 @@ function App() {
     analyzArticle, 
     updateTone, 
     analyzeTextRealTime,
-    stopAnalysis 
+    stopAnalysis,
+    setGeminiAPIKey,
+    testGeminiConnection
   } = useAnalysis();
 
   // If in dashboard mode, render the dashboard
@@ -194,6 +197,12 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* Gemini AI Settings - Floating Panel */}
+      <GeminiSettings 
+        onAPIKeySet={setGeminiAPIKey}
+        onTestConnection={testGeminiConnection}
+      />
     </div>
   );
 }

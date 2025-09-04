@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BiasLevel } from '../components/BiasIndicator';
 import { ToneType } from '../components/ToneSelector';
-import { urlFetcher } from '../services';
+import { urlFetcher, geminiService } from '../services';
 
 interface SummaryData {
   title: string;
@@ -31,6 +31,23 @@ class RealTimeAnalysisService {
   private bbcArticleData?: any; // Store BBC article data for tone switching
   private nytArticleData?: any; // Store NYT article data for tone switching
   private cnnArticleData?: any; // Store CNN article data for tone switching
+  private useGeminiAPI: boolean = false; // Flag to enable/disable Gemini API
+
+  setGeminiAPIKey(apiKey: string) {
+    try {
+      geminiService.initializeAPI(apiKey);
+      this.useGeminiAPI = true;
+      console.log('Gemini API enabled for enhanced summarization');
+    } catch (error) {
+      console.error('Failed to initialize Gemini API:', error);
+      this.useGeminiAPI = false;
+    }
+  }
+
+  async testGeminiConnection(): Promise<boolean> {
+    if (!this.useGeminiAPI) return false;
+    return await geminiService.testConnection();
+  }
 
   subscribe(callback: (data: Partial<SummaryData>) => void) {
     this.subscribers.add(callback);
@@ -153,10 +170,16 @@ class RealTimeAnalysisService {
         }
 
         stepIndex++;
-      } else {
-        // Complete analysis
-        this.emit(this.generateCompleteSummary(actualContent, source, tone, articleTitle, articleSource));
-        this.stopAnalysis();
+        
+        if (stepIndex >= steps.length) {
+          // Complete analysis - use Gemini if available
+          if (this.useGeminiAPI) {
+            this.completeAnalysisWithGemini(actualContent, source, tone, articleTitle, articleSource);
+          } else {
+            this.emit(this.generateCompleteSummary(actualContent, source, tone, articleTitle, articleSource));
+            this.stopAnalysis();
+          }
+        }
       }
     }, 300); // Faster updates for better real-time feel
   }
@@ -165,6 +188,125 @@ class RealTimeAnalysisService {
     if (this.analysisInterval) {
       window.clearInterval(this.analysisInterval);
       this.analysisInterval = undefined;
+    }
+  }
+
+  private async completeAnalysisWithGemini(
+    content: string,
+    source: 'url' | 'text',
+    tone: ToneType,
+    title?: string,
+    articleSource?: string
+  ) {
+    try {
+      this.emit({
+        analysisProgress: 95,
+        isRealTime: true
+      });
+
+      // Set up progress callback for Gemini
+      geminiService.setProgressCallback((_stage, progress, _message) => {
+        // Map Gemini progress to final 5% of analysis
+        const mappedProgress = 95 + (progress * 0.05);
+        this.emit({
+          analysisProgress: mappedProgress,
+          isRealTime: true
+        });
+      });
+
+      // Map tone to Gemini options
+      const geminiOptions = {
+        tone: (tone === 'facts' ? 'technical' : tone === 'simple' ? 'casual' : 'neutral') as 'neutral' | 'technical' | 'casual' | 'formal',
+        length: 'medium' as const,
+        focus: (tone === 'facts' ? 'facts' : 'key-points') as 'key-points' | 'analysis' | 'facts' | 'opinion'
+      };
+
+      // Get AI-powered analysis
+      const geminiResult = await geminiService.summarizeArticle(
+        content,
+        title || '',
+        geminiOptions
+      );
+
+      // Create enhanced summary with Gemini results
+      const enhancedSummary = this.createEnhancedSummary(
+        content,
+        source,
+        tone,
+        title,
+        articleSource,
+        geminiResult
+      );
+
+      this.emit(enhancedSummary);
+      this.stopAnalysis();
+
+    } catch (error) {
+      console.error('Gemini analysis failed, falling back to standard analysis:', error);
+      // Fallback to standard analysis
+      this.emit(this.generateCompleteSummary(content, source, tone, title, articleSource));
+      this.stopAnalysis();
+    }
+  }
+
+  private createEnhancedSummary(
+    content: string,
+    source: 'url' | 'text',
+    _tone: ToneType,
+    title?: string,
+    articleSource?: string,
+    geminiResult?: any
+  ): SummaryData {
+    // Check if we have specific article data
+    const isBBC = this.bbcArticleData && source === 'url';
+    const isNYT = this.nytArticleData && source === 'url';
+    const isCNN = this.cnnArticleData && source === 'url';
+
+    return {
+      title: title || (source === 'url' ? "AI-Enhanced Article Analysis" : "AI-Enhanced Text Analysis"),
+      source: articleSource || (source === 'url' ? "Web Article" : "User Input"),
+      publishDate: new Date().toLocaleDateString(),
+      content: geminiResult?.summary || content.substring(0, 500) + (content.length > 500 ? '...' : ''),
+      keyPoints: geminiResult?.keyPoints || this.extractKeyPoints(content),
+      biasLevel: this.mapSentimentToBias(geminiResult?.sentiment) || "low" as BiasLevel,
+      biasScore: this.calculateBiasScore(geminiResult?.sentiment),
+      biasDetails: geminiResult?.biasAnalysis ? [geminiResult.biasAnalysis] : [
+        "AI-powered bias analysis completed",
+        "Content analyzed for balanced reporting",
+        "Multiple perspectives evaluated"
+      ],
+      credibilityScore: geminiResult?.credibilityScore || (source === 'url' ? (isBBC ? 88 : isNYT ? 90 : isCNN ? 86 : 82) : 85),
+      analysisProgress: 100,
+      isRealTime: true,
+      originalContent: content,
+      isBBCArticle: isBBC,
+      isNYTArticle: isNYT,
+      isCNNArticle: isCNN,
+      author: isBBC ? this.bbcArticleData.author : isNYT ? this.nytArticleData.author : isCNN ? this.cnnArticleData.author : undefined,
+      imageUrl: isBBC ? this.bbcArticleData.imageUrl : isNYT ? this.nytArticleData.imageUrl : isCNN ? this.cnnArticleData.imageUrl : undefined,
+      tags: isBBC ? this.bbcArticleData.tags : isNYT ? this.nytArticleData.tags : isCNN ? this.cnnArticleData.tags : undefined
+    };
+  }
+
+  private mapSentimentToBias(sentiment?: string): BiasLevel {
+    switch (sentiment) {
+      case 'positive':
+      case 'negative':
+        return 'medium' as BiasLevel;
+      case 'neutral':
+      default:
+        return 'low' as BiasLevel;
+    }
+  }
+
+  private calculateBiasScore(sentiment?: string): number {
+    switch (sentiment) {
+      case 'positive':
+      case 'negative':
+        return 0.4;
+      case 'neutral':
+      default:
+        return 0.2;
     }
   }
 
@@ -493,6 +635,16 @@ export const useAnalysis = () => {
   const debounceTimerRef = useRef<number>();
   const isAnalyzingRef = useRef(false);
 
+  // Auto-initialize Gemini if environment variable is set
+  useEffect(() => {
+    const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const enableByDefault = import.meta.env.VITE_ENABLE_GEMINI_BY_DEFAULT === 'true';
+    
+    if (envApiKey && envApiKey !== 'your_gemini_api_key_here' && enableByDefault) {
+      analysisService.setGeminiAPIKey(envApiKey);
+    }
+  }, []);
+
   // Real-time analysis subscriber
   useEffect(() => {
     const unsubscribe = analysisService.subscribe((partialData) => {
@@ -578,6 +730,14 @@ export const useAnalysis = () => {
     isAnalyzingRef.current = false;
   }, []);
 
+  const setGeminiAPIKey = useCallback((apiKey: string) => {
+    analysisService.setGeminiAPIKey(apiKey);
+  }, []);
+
+  const testGeminiConnection = useCallback(async () => {
+    return await analysisService.testGeminiConnection();
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -596,6 +756,8 @@ export const useAnalysis = () => {
     analyzArticle,
     updateTone,
     analyzeTextRealTime,
-    stopAnalysis
+    stopAnalysis,
+    setGeminiAPIKey,
+    testGeminiConnection
   };
 };
