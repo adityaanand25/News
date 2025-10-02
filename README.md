@@ -1,4 +1,4 @@
-# 📰 News Summarizer
+# 📰 News Lens
 
 A modern **AI-powered news summarizer** built with **React**, **Google Gemini API**, and **BeautifulSoup web scraping**.  
 This project scrapes articles from the web and generates concise summaries using AI, making it easy to stay updated without reading lengthy articles.
